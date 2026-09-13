@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# --expose-internals: web profile 的 HMR 插件(cordis-plugin-hmr)启动时要求
+exec node --expose-internals /data/data/com.termux/files/home/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js "$@"

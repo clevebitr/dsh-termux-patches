@@ -1,0 +1,22 @@
+本仓库包含派生于第三方作品的文件，来源与许可如下：
+
+1) session-persistence-jsonl.index.js
+   派生自 @deepseek-ai/dsh-session-persistence-jsonl (MIT License)
+   Copyright (c) 2026 DeepSeek
+   改动：Android/SELinux 禁止硬链接时降级为 rename / 独占复制发布。
+
+2) attachment-local.index.js
+   派生自 @deepseek-ai/dsh-attachment-local (MIT License)
+   Copyright (c) 2026 DeepSeek
+   改动：同上，附件对象改用独占复制发布。
+
+3) flock.js
+   派生自 @deepseek-ai/node-addon-system (BSD-3-Clause)
+   改动：原生 addon 换成 koffi FFI，经 libc 调用 flock。
+
+4) pty.node
+   由 node-pty 1.2.0-beta.15 (MIT License,
+   Copyright (c) 2012-2015 Christopher Jeffrey 及贡献者) 为 android-arm64 构建。
+
+5) 其余文件（apply.sh、patch-fs-local.mjs、wrapper-dsh、versions.txt、README.md、
+   dsh-web-notes.md）为本仓库原创，MIT License，见 LICENSE。
