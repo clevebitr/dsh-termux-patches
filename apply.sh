@@ -23,7 +23,7 @@ fi
 
 # 1. node-pty android-arm64 预编译二进制(核心 + web profile 两处)
 PTY_VER="$(ver "$NM/node-pty")"
-echo "[1/8] node-pty $PTY_VER: android-arm64/pty.node"
+echo "[1/9] node-pty $PTY_VER: android-arm64/pty.node"
 if [ "$PTY_VER" != "$(base node-pty)" ]; then
   echo "⚠️  node-pty 版本与备份($(base node-pty))不同,预编译二进制可能不兼容,需重新编译"
 fi
@@ -45,20 +45,20 @@ fi
 
 # 2. sharp wasm32(版本须与 sharp 一致)
 SHARP_VER="$(ver "$NM/sharp")"
-echo "[2/8] sharp $SHARP_VER: 安装 @img/sharp-wasm32@$SHARP_VER"
+echo "[2/9] sharp $SHARP_VER: 安装 @img/sharp-wasm32@$SHARP_VER"
 (cd "$DSH_ROOT" && npm install "@img/sharp-wasm32@$SHARP_VER" --ignore-scripts --no-audit --no-fund)
 
 # 3. flock → koffi FFI(Android bionic 走 libc flock)
-echo "[3/8] flock.js(koffi FFI 补丁)"
+echo "[3/9] flock.js(koffi FFI 补丁)"
 cp "$PATCH_DIR/flock.js" "$NM/@deepseek-ai/node-addon-system/lib/flock.js"
 
 # 4. 硬链接降级(Android SELinux 禁 link)
-echo "[4/8] 硬链接降级(session-persistence-jsonl / attachment-local)"
+echo "[4/9] 硬链接降级(session-persistence-jsonl / attachment-local)"
 cp "$PATCH_DIR/session-persistence-jsonl.index.js" "$NM/@deepseek-ai/dsh-session-persistence-jsonl/lib/index.js"
 cp "$PATCH_DIR/attachment-local.index.js" "$NM/@deepseek-ai/dsh-attachment-local/lib/index.js"
 
 # 5. dsh 命令 wrapper(--expose-internals for HMR)
-echo "[5/8] dsh wrapper → \$PREFIX/bin/dsh"
+echo "[5/9] dsh wrapper → \$PREFIX/bin/dsh"
 cp "$PATCH_DIR/wrapper-dsh" "$PREFIX/bin/dsh"
 chmod +x "$PREFIX/bin/dsh"
 
@@ -68,7 +68,7 @@ chmod +x "$PREFIX/bin/dsh"
 #    于是必然落到 401 "dsh web authentication required; reopen the URL printed by dsh web"。
 #    只影响 $DSH_HOME/.credentials.yaml 里那把密钥签发的会话 cookie 的携带条件;
 #    服务仍只绑 127.0.0.1,API 另有 Host/Origin 围栏。
-echo "[6/8] client-connection cookie SameSite=Strict → Lax"
+echo "[6/9] client-connection cookie SameSite=Strict → Lax"
 CONN="$NM/@deepseek-ai/dsh-client-connection/lib/index.js"
 if grep -q "SameSite=Strict" "$CONN"; then
   sed -i 's/SameSite=Strict/SameSite=Lax/' "$CONN"
@@ -78,7 +78,7 @@ grep -q "SameSite=Lax" "$CONN" || { echo "⚠️  未在 $CONN 找到 SameSite �
 # 7. fs-local 新建文件的发布路径:硬链接不可用(SELinux)时降级为 open(wx) 占名 + rename。
 #    不打这个补丁,write 工具创建任何新文件都会以
 #    "EACCES: permission denied, link ..." 失败(覆盖已有文件走 rename,不受影响)。
-echo "[7/8] fs-local 硬链接降级(write 工具建新文件)"
+echo "[7/9] fs-local 硬链接降级(write 工具建新文件)"
 node "$PATCH_DIR/patch-fs-local.mjs" "$NM"
 
 # 8. 会话发布降级的兜底与锚点断言。
@@ -87,8 +87,18 @@ node "$PATCH_DIR/patch-fs-local.mjs" "$NM"
 #    降级分支;当前 worker 只做只读校验、不发布,所以那份副本暂时不可达,属于"升级后可能
 #    静默复活"的隐患。这里补上降级,并直接断言产物本身:任何 link() 发布点后方 12 行内
 #    必须出现降级分支,否则中止重放交人工核对(npm 重装会让上游代码原样回来)。
-echo "[8/8] 会话发布降级(worker.cjs)+ 硬链接降级锚点断言"
+echo "[8/9] 会话发布降级(worker.cjs)+ 硬链接降级锚点断言"
 node "$PATCH_DIR/patch-session-worker.mjs" "$NM"
 node "$PATCH_DIR/check-session-publish-fallback.mjs" "$NM"
+
+# 9. ripgrep:glob / grep 工具的搜索后端。
+#    @vscode/ripgrep 只是个按平台转发的空壳,它 require.resolve 的平台包
+#    (@vscode/ripgrep-<platform>-<arch>)只发布 linux/darwin/win32——android-arm64
+#    不存在,glibc 的 linux-arm64 也跑不了 bionic,于是两个工具都报
+#    "could not start its search command (ripgrep launch failed)"。
+#    降级到 PATH 上的原生 rg(需 `pkg install ripgrep`),断言会真跑一次 --json 搜索。
+echo "[9/9] ripgrep 降级到原生 rg + 可执行性断言"
+node "$PATCH_DIR/patch-vscode-ripgrep.mjs" "$NM"
+node "$PATCH_DIR/check-ripgrep.mjs" "$NM"
 
 echo "✅ 补丁重放完成。验证:dsh --version && dsh web --no-open --port 3085"
